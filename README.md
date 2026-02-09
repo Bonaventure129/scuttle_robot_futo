@@ -28,7 +28,7 @@ Use these instructions to run the **Gazebo Simulation** on your Laptop/Desktop.
 
 mkdir \-p \~/ros2\_ws/src  
 cd \~/ros2\_ws/src  
-git clone \[https://github.com/YOUR\_USERNAME/scuttle\_ros2.git\](https://github.com/YOUR\_USERNAME/scuttle\_ros2.git) .
+git clone \[https://github.com/Bonaventure129/scuttle_robot_futo.git) .
 
 ### **3\. Install Dependencies**
 
