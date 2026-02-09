@@ -1,0 +1,21 @@
+usb_cam:
+  ros__parameters:
+    video_device: "/dev/video2"
+    framerate: 30.0
+    image_width: 640       # Lower resolution for stability
+    image_height: 480
+    pixel_format: "yuyv"   # <--- CHANGED: Uncompressed format (No decoding errors)
+    av_device_format: "YUV422P"
+    frame_id: "camera_link_optical"
+    camera_name: "m720_camera"
+    brightness: -1
+    contrast: -1
+    saturation: -1
+    sharpness: -1
+    gain: -1
+    auto_white_balance: true
+    white_balance: 4000
+    autoexposure: true
+    exposure: 100
+    autofocus: false
+    focus: -1

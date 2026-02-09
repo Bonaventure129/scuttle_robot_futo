@@ -1,0 +1,11 @@
+<library path="scuttle_planners">
+  <class name="scuttle_planning/DijkstraPlanner" type="scuttle_planning::DijkstraPlanner" base_class_type="nav2_core::GlobalPlanner">
+    <description>Dijkstra Global Planner for Scuttle</description>
+  </class>
+  <class name="scuttle_planning/AStarPlanner" type="scuttle_planning::AStarPlanner" base_class_type="nav2_core::GlobalPlanner">
+    <description>A* Manhattan Global Planner for Scuttle</description>
+  </class>
+  <class name="scuttle_planning/AStarEuclideanPlanner" type="scuttle_planning::AStarEuclideanPlanner" base_class_type="nav2_core::GlobalPlanner">
+    <description>A* Euclidean Global Planner for Scuttle</description>
+  </class>
+</library>

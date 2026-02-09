@@ -1,0 +1,20 @@
+key_teleop:
+  ros__parameters:
+    refresh_period: 0.1 # 10Hz
+    # Topic Name (Matches Twist Mux)
+    cmd_vel_topic: /key_vel
+    # Message Type (false = Twist, true = TwistStamped)
+    # MUST be false to match your Twist Mux 'use_stamped: false' setting
+    publish_stamped_twist: false 
+    
+    # Key Mappings (WASD)
+    forward_key: 'w'
+    backward_key: 's'
+    left_key: 'a'
+    right_key: 'd'
+    
+    # Speeds
+    linear_speed_step: 0.1
+    angular_speed_step: 0.1
+    max_linear_speed: 1.0
+    max_angular_speed: 2.0

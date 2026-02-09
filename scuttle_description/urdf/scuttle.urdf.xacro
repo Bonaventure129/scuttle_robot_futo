@@ -1,0 +1,303 @@
+<?xml version="1.0"?>
+<robot name="scuttle" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:arg name="is_ignition" default="true"/>
+    <xacro:arg name="is_sim" default="true"/>
+
+    <xacro:include filename="$(find scuttle_description)/urdf/materials.xacro" />
+    <xacro:include filename="$(find scuttle_description)/urdf/scuttle_gazebo.xacro" />
+    <xacro:include filename="$(find scuttle_description)/urdf/scuttle_ros2_control.xacro" />
+
+    <link name="base_link">
+    </link>
+
+    <joint name="chassis_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0.10539999389648432 0 0.084749938964843793"/>
+        <parent link="base_link"/>
+        <child link="chassis_link"/>
+    </joint>
+
+    <link name="chassis_link">
+        <inertial>
+            <origin xyz="0.0114371765072549 -0.00529326104577102 2.40477762203677E-05" rpy="0 0 0" />
+            <mass value="2.25481483025819" />
+            <inertia ixx="0.00730711681646688" ixy="-2.43527114253779E-07" ixz="-3.48346694270375E-06" 
+                     iyy="0.00253566189017512" iyz="9.70671079643195E-08" izz="0.00933594635302766" />
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/chassis_link.STL" />
+            </geometry>
+            <material name="silver"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/chassis_link.STL" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="camera_link">
+        <inertial>
+            <origin xyz="-0.0177983462673726 -7.09300539509634E-05 -0.000151685166925195" rpy="0 0 0" />
+            <mass value="0.0167460724515451" />
+            <inertia ixx="3.10021128481168E-06" ixy="-2.05374604483769E-08" ixz="-2.39460550037463E-08" 
+                     iyy="2.04412547159972E-06" iyz="-2.79729653570943E-08" izz="2.02123019070592E-06" />
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/camera_link.STL" />
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/camera_link.STL" />
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="camera_joint" type="fixed">
+        <origin xyz="0.22885 0 0.04721" rpy="0 0 0" />
+        <parent link="chassis_link" />
+        <child link="camera_link" />
+    </joint>
+
+    <joint name="camera_optical_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="-1.57079632679 0 -1.57079632679" />
+        <parent link="camera_link" />
+        <child link="camera_link_optical" />
+    </joint>
+
+    <link name="camera_link_optical">
+    </link>
+
+    <joint name="l_wheel_joint" type="continuous">
+        <origin rpy="0 0 1.570796" xyz="-0.1015 0.21917 -0.043"/>
+        <parent link="chassis_link"/>
+        <child link="l_wheel"/>
+        <axis xyz="1.0 -0.0 0.0"/>
+    </joint>
+
+    <link name="l_wheel">
+        <inertial>
+            <origin rpy="0 0 0" xyz="-0.020325481156161784 -9.763736334427187e-09 4.516951403188418e-09"/>
+            <mass value="0.5928646271111422"/>
+            <inertia ixx="0.000334" ixy="0.0" ixz="-0.0" iyy="0.000332" iyz="-0.0" izz="0.000332"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="-0.21235 -0.0 -0.04175"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/l_wheel_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="-0.21235 -0.0 -0.04175"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/l_wheel_collision_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="r_wheel_joint" type="continuous">
+        <origin rpy="0 0 1.570796" xyz="-0.1015 -0.21917 -0.043"/>
+        <parent link="chassis_link"/>
+        <child link="r_wheel"/>
+        <axis xyz="1.0 0.0 -0.0"/>
+    </joint>
+
+    <link name="r_wheel">
+        <inertial>
+            <origin rpy="0 0 0" xyz="0.020325563043213257 1.3954236146756306e-08 2.0353343177514915e-09"/>
+            <mass value="0.592867092340216"/>
+            <inertia ixx="0.000334" ixy="0.0" ixz="0.0" iyy="0.000332" iyz="-0.0" izz="0.000332"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="0.21215 0.0 -0.04175"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/r_wheel_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.21215 0.0 -0.04175"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/r_wheel_collision_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="l_caster_swivel_joint" type="continuous">
+        <origin rpy="0 0 1.570796" xyz="0.14925 0.11925 -0.02446"/>
+        <parent link="chassis_link"/>
+        <child link="l_caster_swivel"/>
+        <axis xyz="0.0 0.0 1.0"/>
+    </joint>
+
+    <link name="l_caster_swivel">
+        <inertial>
+            <origin rpy="0 0 0" xyz="-0.0002554502352885568 0.010633952722858359 -0.012968467515129908"/>
+            <mass value="0.02074189648802402"/>
+            <inertia ixx="7e-06" ixy="0.0" ixz="0.0" iyy="8e-06" iyz="1e-06" izz="9e-06"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="0.119279 0.254415 -0.059282"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/r_caster_swivel_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="silver"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.119279 0.254415 -0.059282"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/r_caster_swivel_collision_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="l_caster_wheel_joint" type="continuous">
+        <origin rpy="0 0 0" xyz="-0.017792 0.024 -0.034"/>
+        <parent link="l_caster_swivel"/>
+        <child link="l_caster_wheel"/>
+        <axis xyz="1.0 0.0 -0.0"/>
+    </joint>
+
+    <link name="l_caster_wheel">
+        <inertial>
+            <origin rpy="0 0 0" xyz="0.0160002016389222 -1.6368916427866864e-07 -7.02880924990934e-08"/>
+            <mass value="0.03841110590847018"/>
+            <inertia ixx="1.2e-05" ixy="0.0" ixz="-0.0" iyy="7e-06" iyz="0.0" izz="7e-06"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="-0.101223 0.230415 -0.025282"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/l_caster_wheel_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="-0.101223 0.230415 -0.025282"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/l_caster_wheel_collision_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="r_caster_swivel_joint" type="continuous">
+        <origin rpy="0 0 1.570796" xyz="0.14925 -0.11925 -0.02446"/>
+        <parent link="chassis_link"/>
+        <child link="r_caster_swivel"/>
+        <axis xyz="0.0 -0.0 1.0"/>
+    </joint>
+
+    <link name="r_caster_swivel">
+        <inertial>
+            <origin rpy="0 0 0" xyz="-0.00025520971284771765 0.010633952722903461 -0.012968467515129777"/>
+            <mass value="0.02074189648802399"/>
+            <inertia ixx="7e-06" ixy="0.0" ixz="0.0" iyy="8e-06" iyz="1e-06" izz="9e-06"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="-0.119015 0.254415 -0.059282"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/l_caster_swivel_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="silver"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="-0.119015 0.254415 -0.059282"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/l_caster_swivel_collision_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="r_caster_wheel_joint" type="continuous">
+        <origin rpy="0 0 0" xyz="0.014208 0.024 -0.034"/>
+        <parent link="r_caster_swivel"/>
+        <child link="r_caster_wheel"/>
+        <axis xyz="-1.0 -0.0 0.0"/>
+    </joint>
+
+    <link name="r_caster_wheel">
+        <inertial>
+            <origin rpy="0 0 0" xyz="-0.016000038883518655 -1.6368920854881175e-07 -7.028809271419911e-08"/>
+            <mass value="0.03841110590847031"/>
+            <inertia ixx="1.2e-05" ixy="-0.0" ixz="0.0" iyy="7e-06" iyz="0.0" izz="7e-06"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="0.105071 0.230415 -0.025282"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/r_caster_wheel_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.105071 0.230415 -0.025282"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/r_caster_wheel_collision_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="lidar" type="fixed">
+        <origin rpy="0 0 3.141592" xyz="0.015 9.9995E-05 0.10112"/>
+        <parent link="chassis_link"/>
+        <child link="lidar_link"/>
+    </joint>
+
+    <link name="lidar_link">
+        <inertial>
+            <origin rpy="0 0 0" xyz="-0.0010241190327231165 -0.0008953477993804172 0.009594767416774092"/>
+            <mass value="0.07327266108520486"/>
+            <inertia ixx="2.5e-05" ixy="1e-06" ixz="0.0" iyy="2.5e-05" iyz="0.0" izz="4.4e-05"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="-0.0 0.0275 -0.1096"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/lidar_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="-0.0 0.0275 -0.1096"/>
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/lidar_1.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="imu_joint" type="fixed">
+        <origin xyz="0.22885 0.170 0.04721" rpy="0 0 0" />
+        <parent link="chassis_link" />
+        <child link="imu_link" />
+    </joint>
+
+    <link name="imu_link">
+        <inertial>
+            <origin xyz="-0.232541490636802 -0.0670525898387614 -0.0365014390948353" rpy="0 0 0" />
+            <mass value="0.000528838058158998" />
+            <inertia ixx="1.7299981511803E-08" ixy="4.27438785178695E-10" ixz="-7.03956878798697E-11"
+                    iyy="1.02740910763395E-08" iyz="-4.9695829667544E-11"
+                    izz="2.7208887486467E-08" />
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/imu_link.STL" />
+            </geometry>
+            <material name="green"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://scuttle_description/meshes/imu_link.STL" />
+            </geometry>
+        </collision>
+    </link>
+
+</robot>

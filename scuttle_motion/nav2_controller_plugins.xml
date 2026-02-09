@@ -1,0 +1,8 @@
+<library path="scuttle_controllers">
+  <class name="scuttle_motion/PDMotionPlanner" type="scuttle_motion::PDMotionPlanner" base_class_type="nav2_core::Controller">
+    <description>PD Path Follower</description>
+  </class>
+  <class name="scuttle_motion/PurePursuit" type="scuttle_motion::PurePursuit" base_class_type="nav2_core::Controller">
+    <description>Pure Pursuit Controller</description>
+  </class>
+</library>
