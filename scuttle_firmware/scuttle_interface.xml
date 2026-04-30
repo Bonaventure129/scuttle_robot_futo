@@ -1,0 +1,7 @@
+<library path="scuttle_firmware">
+    <class name="scuttle_firmware/ScuttleInterface" 
+           type="scuttle_firmware::ScuttleInterface" 
+           base_class_type="hardware_interface::SystemInterface">
+      <description> Scuttle Hardware Interface </description>
+    </class>
+</library>

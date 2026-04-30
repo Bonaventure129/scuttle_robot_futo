@@ -1,0 +1,107 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 20  # Controller manager loop rate in Hz. All controllers will run at this rate.
+    use_sim_time: False # Use Gazebo's simulated clock for timing.
+    
+    # -------------------------------------------------------------------------
+    # 1. Broadcaster (Required for publishing wheel joint positions/velocities)
+    # -------------------------------------------------------------------------
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    # -------------------------------------------------------------------------
+    # 2. Differential Drive Controller (The main motion controller)
+    #    This controller subscribes to /cmd_vel and publishes /odom.
+    # -------------------------------------------------------------------------
+    scuttle_controller:  # <-- This is the unique name used when spawning the controller in launch file
+      type: diff_drive_controller/DiffDriveController
+
+    # -------------------------------------------------------------------------
+    # 3. Simple Velocity Controller (Included for reference, but NOT loaded/used)
+    # -------------------------------------------------------------------------
+    simple_velocity_controller:
+       type: velocity_controllers/JointGroupVelocityController
+
+
+# -----------------------------------------------------------------------------
+# DIFF DRIVE CONTROLLER PARAMETERS (Name must match 'scuttle_controller' above)
+# -----------------------------------------------------------------------------
+scuttle_controller:
+  ros__parameters:
+    # Controller Type & Topics
+    type: diff_drive_controller/DiffDriveController # Explicitly specify type here as well
+    use_stamped_vel: true                          # Use geometry_msgs/TwistStamped for cmd_vel topic
+    
+    # Joint Names (MUST match r_wheel_joint and l_wheel_joint in scuttle_ros2_control.xacro)
+    left_wheel_names: ['l_wheel_joint']
+    right_wheel_names: ['r_wheel_joint']
+
+    # -------------------------------------------------------------------------
+    # Kinematic Parameters (Tune these to your actual Scuttle hardware)
+    # -------------------------------------------------------------------------
+    wheel_separation: 0.402     # Distance between wheel centers in meters
+    wheel_radius: 0.041         # Radius of wheels in meters
+
+    # Multipliers for fine-tuning kinematics in simulation (usually 1.0)
+    wheel_separation_multiplier: 1.0
+    left_wheel_radius_multiplier: 1.0
+    right_wheel_radius_multiplier: 1.0
+
+    # -------------------------------------------------------------------------
+    # Odometry and Topic Configuration
+    # -------------------------------------------------------------------------
+    publish_rate: 20.0           # Rate at which odometry is published in Hz
+    odom_frame_id: odom          # Standard Odometry frame
+    base_frame_id: base_link     # Robot's base frame (usually base_link or base_footprint)
+    
+    # --- THE MAGIC BULLET ---
+    # If your Arduino sends bad data (or no data), the controller publishes 'NaN' and breaks Nav2.
+    # open_loop: true forces the controller to ignore encoders and estimate odometry mathematically.
+   # open_loop: true
+
+    
+    # Timeout for velocity commands [s], default 0.5. If no command received in this time, stop.
+    cmd_vel_timeout: 0.5
+    
+    # Output Flags
+    publish_limited_velocity: true  # Publish the velocity after applying limits
+    publish_wheel_data: true        # Publish wheel joint commands and states
+    enable_odom_tf: true            # Publish the transform from odom_frame_id to base_frame_id
+
+    # -------------------------------------------------------------------------
+    # Odometry Covariance (Used for realistic localization in Nav2)
+    # -------------------------------------------------------------------------
+    pose_covariance_diagonal:  [0.001, 0.001, 1.0e-3, 1.0e-3, 1.0e-3, 0.01]
+    twist_covariance_diagonal: [0.001, 0.001, 1.0e-3, 1.0e-3, 1.0e-3, 0.01]
+    
+    # -------------------------------------------------------------------------
+    # Velocity and Acceleration Limits
+    # -------------------------------------------------------------------------
+    linear:
+      x:
+        has_velocity_limits    : true
+        max_velocity           : 2.0  # Max forward/backward speed (m/s)
+        min_velocity           : -2.0 # Min forward/backward speed (m/s)
+        has_acceleration_limits: true
+        max_acceleration       : 0.8  # Max linear acceleration (m/s^2)
+        min_acceleration       : -0.8 # Min linear acceleration (m/s^2)
+        has_jerk_limits        : false # Jerk limits are usually disabled in diff_drive
+    angular:
+      z:
+        has_velocity_limits    : true
+        max_velocity           : 3.0  # Max turning speed (rad/s)
+        min_velocity           : -3.0 # Min turning speed (rad/s)
+        has_acceleration_limits: true
+        max_acceleration       : 1.5  # Max angular acceleration (rad/s^2)
+        min_acceleration       : -1.5 # Min angular acceleration (rad/s^2)
+        has_jerk_limits        : false # Jerk limits are usually disabled in diff_drive
+
+
+# -----------------------------------------------------------------------------
+# SIMPLE VELOCITY CONTROLLER PARAMETERS (Commented out as DiffDrive is used)
+# -----------------------------------------------------------------------------
+simple_velocity_controller:
+  ros__parameters:
+    joints:
+      - l_wheel_joint
+      - r_wheel_joint

@@ -1,0 +1,7 @@
+--2026-02-09 13:56:41--  https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+Resolving alphacephei.com (alphacephei.com)... 188.40.21.16, 2a01:4f8:13a:279f::2
+Connecting to alphacephei.com (alphacephei.com)|188.40.21.16|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 41205931 (39M) [application/zip]
+Saving to: ‘vosk-model-small-en-us-0.15.zip’
+
