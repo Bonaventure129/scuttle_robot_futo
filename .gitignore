@@ -1,0 +1,42 @@
+ROS 2 build system
+
+build/
+install/
+log/
+.colcon/
+
+Python
+
+pycache/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+C++
+
+cmake-build-debug/
+*.o
+*.so
+
+IDEs
+
+.vscode/
+.idea/
+*.swp
+*~
+
+Generated Maps
+
+*.pgm
+.yaml
+!config/.yaml
+
+OS specific
+
+.DS_Store
+Thumbs.db
+
+Private User Data (if any)
+
+/bags/
