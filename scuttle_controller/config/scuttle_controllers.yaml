@@ -43,7 +43,7 @@ scuttle_controller:
     wheel_radius: 0.041         # Radius of wheels in meters
 
     # Multipliers for fine-tuning kinematics in simulation (usually 1.0)
-    wheel_separation_multiplier: 1.0
+    wheel_separation_multiplier: 0.95
     left_wheel_radius_multiplier: 1.0
     right_wheel_radius_multiplier: 1.0
 
@@ -85,16 +85,19 @@ scuttle_controller:
         has_acceleration_limits: true
         max_acceleration       : 0.8  # Max linear acceleration (m/s^2)
         min_acceleration       : -0.8 # Min linear acceleration (m/s^2)
-        has_jerk_limits        : false # Jerk limits are usually disabled in diff_drive
+        max_jerk               : NAN  # Removes the deprecated warning in ROS 2
+        min_jerk               : NAN
     angular:
       z:
         has_velocity_limits    : true
         max_velocity           : 3.0  # Max turning speed (rad/s)
         min_velocity           : -3.0 # Min turning speed (rad/s)
         has_acceleration_limits: true
-        max_acceleration       : 1.5  # Max angular acceleration (rad/s^2)
-        min_acceleration       : -1.5 # Min angular acceleration (rad/s^2)
-        has_jerk_limits        : false # Jerk limits are usually disabled in diff_drive
+        # --- TRACTION CONTROL FIX ---
+        max_acceleration       : 0.4  # Massively lowered to prevent wheel slip!
+        min_acceleration       : -0.4 # Massively lowered to prevent wheel slip!
+        max_jerk               : NAN  # Removes the deprecated warning in ROS 2
+        min_jerk               : NAN
 
 
 # -----------------------------------------------------------------------------

@@ -1,230 +1,245 @@
-#include <ams_as5048b.h>
-#include <Wire.h>
+#include "scuttle_firmware/scuttle_interface.hpp"
+#include <hardware_interface/types/hardware_interface_type_values.hpp>
+#include <pluginlib/class_list_macros.hpp>
+#include <sstream>
+#include <iomanip>
 
-// --- ARDUINO UNO PINS (HW-231) ---
-// LEFT Motor (PWM Pins 3 & 9)
-const int L_IN1 = 9;  
-const int L_IN2 = 3;
+using namespace std;
+using namespace scuttle_firmware;
+using namespace hardware_interface;
+using namespace rclcpp;
+using namespace rclcpp_lifecycle;
+using namespace rclcpp_lifecycle::node_interfaces;
 
-// RIGHT Motor (PWM Pins 11 & 10)
-const int R_IN1 = 10;  
-const int R_IN2 = 11;
-
-// --- SENSORS ---
-AMS_AS5048B encL(0x40);
-AMS_AS5048B encR(0x41);
-const float GEAR_RATIO = 0.5;
-#define U_DEG 3
-
-// --- TUNING VALUES ---
-// Tamed the PID to prevent violent jerking and wheel slip
-double Kp_L = 1.2, Ki_L = 0.01, Kd_L = 0.05;
-double Kp_R = 1.2, Ki_R = 0.01, Kd_R = 0.05;
-
-// --- UNIT CONVERSION ---
-const float RPM_TO_RADS = 0.104719755;
-const float RADS_TO_RPM = 9.54929658;
-
-// --- SERIAL PARSING STATE ---
-bool is_right_wheel_cmd = false;
-bool is_left_wheel_cmd = false;
-bool is_right_wheel_forward = true;
-bool is_left_wheel_forward = true;
-char value[] = "00.00";
-uint8_t value_idx = 0;
-bool is_cmd_complete = false;
-
-// --- CONTROL VARIABLES ---
-// Targets in Radians/Sec (From ROS)
-double target_rads_L = 0.0;
-double target_rads_R = 0.0;
-
-// Internal PID variables
-unsigned long prevTime = 0;
-double prevAngL=0, prevTotL=0; long rotL=0;
-double prevAngR=0, prevTotR=0; long rotR=0;
-double integL=0, lastErrL=0;
-double integR=0, lastErrR=0;
-
-// Smoothing Buffers
-const int AVG=4;
-double bufL[AVG]={0}, bufR[AVG]={0}; 
-int idxL=0, idxR=0; 
-
-void setup() {
-  Serial.begin(115200);
-  
-  // Prevent Arduino from freezing when reading ROS commands
-  Serial.setTimeout(10); 
-  
-  pinMode(L_IN1, OUTPUT); pinMode(L_IN2, OUTPUT);
-  pinMode(R_IN1, OUTPUT); pinMode(R_IN2, OUTPUT);
-  
-  // Stop Motors initially
-  digitalWrite(L_IN1, LOW); digitalWrite(L_IN2, LOW);
-  digitalWrite(R_IN1, LOW); digitalWrite(R_IN2, LOW);
-  
-  encL.begin(); encR.begin();
-  encL.setClockWise(true); encR.setClockWise(false);
-  
-  encL.updateMovingAvgExp(); encR.updateMovingAvgExp();
-  prevAngL = encL.angleR(U_DEG, false);
-  prevAngR = encR.angleR(U_DEG, false);
-  prevTotL = prevAngL; prevTotR = prevAngR;
+ScuttleInterface::ScuttleInterface()
+{
 }
 
-void loop() {
-  // -------------------------------------------------
-  // 1. SERIAL COMMAND PARSER (FIXED)
-  // -------------------------------------------------
-  // Use 'while' to drain the entire buffer instantly
-  while (Serial.available()) {
-    char chr = Serial.read();
-    
-    // CRITICAL: Ignore invisible characters that corrupt the math!
-    if (chr == '\n' || chr == '\r' || chr == ' ') continue;
-    
-    if(chr == 'r') {
-      is_right_wheel_cmd = true; is_left_wheel_cmd = false;
-      value_idx = 0; is_cmd_complete = false;
+ScuttleInterface::~ScuttleInterface()
+{
+  if (arduino_.IsOpen())
+  {
+    try
+    {
+      arduino_.Close();
     }
-    else if(chr == 'l') {
-      is_right_wheel_cmd = false; is_left_wheel_cmd = true;
-      value_idx = 0;
+    catch (...)
+    {
+      RCLCPP_FATAL_STREAM(rclcpp::get_logger("ScuttleInterface"),
+                          "Something went wrong while closing connection with port " << port_);
     }
-    else if(chr == 'p') {
-      if(is_right_wheel_cmd) is_right_wheel_forward = true;
-      else if(is_left_wheel_cmd) is_left_wheel_forward = true;
-    }
-    else if(chr == 'n') {
-      if(is_right_wheel_cmd) is_right_wheel_forward = false;
-      else if(is_left_wheel_cmd) is_left_wheel_forward = false;
-    }
-    else if(chr == ',') {
-      if(is_right_wheel_cmd) {
-        target_rads_R = atof(value);
-        if(!is_right_wheel_forward) target_rads_R *= -1.0;
-      }
-      else if(is_left_wheel_cmd) {
-        target_rads_L = atof(value);
-        if(!is_left_wheel_forward) target_rads_L *= -1.0;
-        is_cmd_complete = true;
-      }
-      // Reset buffer
-      value_idx = 0;
-      memset(value, 0, sizeof(value));
-      strcpy(value, "00.00");
-    }
-    else {
-      if(value_idx < 5) {
-        value[value_idx] = chr;
-        value_idx++;
-      }
-    }
-  }
-
-  // -------------------------------------------------
-  // 2. CONTROL LOOP (50ms / 20Hz)
-  // -------------------------------------------------
-  unsigned long now = millis();
-  if(now - prevTime >= 50) { 
-    double dt = (now - prevTime)/1000.0;
-    prevTime = now;
-
-    // --- A. READ SENSORS (Get RPM) ---
-    double rpmL = getRPM(dt, &encL, &prevAngL, &prevTotL, &rotL, bufL, &idxL);
-    double rpmR = getRPM(dt, &encR, &prevAngR, &prevTotR, &rotR, bufR, &idxR);
-
-    // --- B. CONVERT TARGETS (Rad/s -> RPM) ---
-    double targetRPM_L = target_rads_L * RADS_TO_RPM;
-    double targetRPM_R = target_rads_R * RADS_TO_RPM;
-
-    // --- C. RUN PID ---
-    double pwmL = runPID(targetRPM_L, rpmL, dt, &integL, &lastErrL, Kp_L, Ki_L, Kd_L);
-    double pwmR = runPID(targetRPM_R, rpmR, dt, &integR, &lastErrR, Kp_R, Ki_R, Kd_R);
-
-    // --- D. APPLY TO MOTORS ---
-    if(target_rads_L == 0) { setHW231Motor(L_IN1, L_IN2, 0); integL = 0; }
-    else setHW231Motor(L_IN1, L_IN2, pwmL);
-
-    if(target_rads_R == 0) { setHW231Motor(R_IN1, R_IN2, 0); integR = 0; }
-    else setHW231Motor(R_IN1, R_IN2, pwmR);
-
-    // --- E. SEND FEEDBACK TO ROS (RPM -> Rad/s) ---
-    double meas_rads_L = rpmL * RPM_TO_RADS;
-    double meas_rads_R = rpmR * RPM_TO_RADS;
-
-    // DEADBAND FILTER to stop sensor noise
-    if (abs(meas_rads_L) < 0.05) meas_rads_L = 0.0;
-    if (abs(meas_rads_R) < 0.05) meas_rads_R = 0.0;
-
-    // Corrected positive/negative string logic
-    String r_sign = (meas_rads_R >= 0) ? "p" : "n";
-    String l_sign = (meas_rads_L >= 0) ? "p" : "n";
-
-    // Format: "rp03.14,ln02.50,"
-    Serial.print("r");
-    Serial.print(r_sign);
-    if (abs(meas_rads_R) < 10.0) Serial.print("0");
-    Serial.print(abs(meas_rads_R), 2);
-    
-    Serial.print(",l");
-    Serial.print(l_sign);
-    if (abs(meas_rads_L) < 10.0) Serial.print("0");
-    Serial.print(abs(meas_rads_L), 2);
-    Serial.println(",");
   }
 }
 
-// -------------------------------------------------
-// HELPERS
-// -------------------------------------------------
-double getRPM(double dt, AMS_AS5048B *enc, double *prevAng, double *prevTot, long *rot, double *buf, int *wheel_idx) {
-  enc->updateMovingAvgExp();
-  double cur = enc->angleR(U_DEG, false);
-  
-  if(cur < 90 && *prevAng > 270) (*rot)++;
-  else if(cur > 270 && *prevAng < 90) (*rot)--;
-  
-  *prevAng = cur;
-  double tot = (*rot * 360.0) + cur;
-  double delta = (tot - *prevTot) * GEAR_RATIO;
-  *prevTot = tot;
-  
-  double raw = (delta / 360.0) / (dt / 60.0);
-  
-  buf[*wheel_idx] = raw;
-  *wheel_idx = (*wheel_idx + 1) % AVG;
-  
-  double avg = 0;
-  for(int i=0; i<AVG; i++) avg += buf[i];
-  return avg / AVG;
-}
-
-double runPID(double target, double current, double dt, double *integral, double *lastErr, double Kp, double Ki, double Kd) {
-  double error = target - current;
-  *integral += error * dt;
-  *integral = constrain(*integral, -255, 255); 
-  double deriv = (error - *lastErr) / dt;
-  *lastErr = error;
-  return (Kp * error) + (Ki * *integral) + (Kd * deriv);
-}
-
-void setHW231Motor(int pinA, int pinB, double pwmInput) {
-  int pwm = constrain((int)abs(pwmInput), 0, 255);
-  
-  // --- THE STICTION FIX ---
-  // Lowered slightly to 65 to prevent the robot from jumping and slipping
-  if (pwm > 0 && pwm < 65) {
-      pwm = 65; 
+CallbackReturn ScuttleInterface::on_init(const HardwareInfo &hardware_info)
+{
+  // Call the base class implementation.
+  // Note: This might generate a deprecation warning in Jazzy logs, 
+  // but it is the correct and compiling way to initialize.
+  if (SystemInterface::on_init(hardware_info) != CallbackReturn::SUCCESS)
+  {
+    return CallbackReturn::ERROR;
   }
-  // ------------------------
 
-  if (pwmInput > 0) { 
-    analogWrite(pinA, pwm); digitalWrite(pinB, LOW); 
-  } else if (pwmInput < 0) { 
-    digitalWrite(pinA, LOW); analogWrite(pinB, pwm); 
-  } else { 
-    digitalWrite(pinA, LOW); digitalWrite(pinB, LOW); 
+  try
+  {
+    port_ = info_.hardware_parameters.at("port");
   }
+  catch (const out_of_range &e)
+  {
+    RCLCPP_FATAL(rclcpp::get_logger("ScuttleInterface"), "No Serial Port provided! Aborting");
+    return CallbackReturn::FAILURE;
+  }
+
+  // Resize vectors for ALL joints (wheels + casters)
+  velocity_commands_.resize(info_.joints.size(), 0.0);
+  position_states_.resize(info_.joints.size(), 0.0);
+  velocity_states_.resize(info_.joints.size(), 0.0);
+
+  // --- FIND CORRECT INDICES BY NAME ---
+  bool found_right = false;
+  bool found_left = false;
+
+  for (size_t i = 0; i < info_.joints.size(); i++)
+  {
+    if (info_.joints[i].name == "r_wheel_joint")
+    {
+      right_wheel_index_ = i;
+      found_right = true;
+    }
+    else if (info_.joints[i].name == "l_wheel_joint")
+    {
+      left_wheel_index_ = i;
+      found_left = true;
+    }
+  }
+
+  if (!found_right || !found_left)
+  {
+    RCLCPP_FATAL(rclcpp::get_logger("ScuttleInterface"), 
+                 "Could not find joints 'r_wheel_joint' or 'l_wheel_joint' in URDF");
+    return CallbackReturn::FAILURE;
+  }
+  
+  last_run_ = Clock().now();
+
+  return CallbackReturn::SUCCESS;
 }
+
+vector<StateInterface> ScuttleInterface::export_state_interfaces()
+{
+  vector<StateInterface> state_interfaces;
+
+  // Export state interfaces for ALL joints
+  for (size_t i = 0; i < info_.joints.size(); i++)
+  {
+    state_interfaces.emplace_back(StateInterface(
+        info_.joints[i].name, HW_IF_POSITION, &position_states_[i]));
+    state_interfaces.emplace_back(StateInterface(
+        info_.joints[i].name, HW_IF_VELOCITY, &velocity_states_[i]));
+  }
+
+  return state_interfaces;
+}
+
+vector<CommandInterface> ScuttleInterface::export_command_interfaces()
+{
+  vector<CommandInterface> command_interfaces;
+
+  // Only export command interfaces for the DRIVEN WHEELS using stored indices
+  command_interfaces.emplace_back(CommandInterface(
+      info_.joints[right_wheel_index_].name, HW_IF_VELOCITY, &velocity_commands_[right_wheel_index_]));
+      
+  command_interfaces.emplace_back(CommandInterface(
+      info_.joints[left_wheel_index_].name, HW_IF_VELOCITY, &velocity_commands_[left_wheel_index_]));
+
+  return command_interfaces;
+}
+
+CallbackReturn ScuttleInterface::on_activate(const State &)
+{
+  RCLCPP_INFO(rclcpp::get_logger("ScuttleInterface"), "Starting robot hardware ...");
+
+  fill(velocity_commands_.begin(), velocity_commands_.end(), 0.0);
+  fill(position_states_.begin(), position_states_.end(), 0.0);
+  fill(velocity_states_.begin(), velocity_states_.end(), 0.0);
+
+  try
+  {
+    arduino_.Open(port_);
+    arduino_.SetBaudRate(LibSerial::BaudRate::BAUD_115200); // Changed to match SoftwareSerial
+  }
+  catch (...)
+  {
+    RCLCPP_FATAL_STREAM(rclcpp::get_logger("ScuttleInterface"),
+                        "Something went wrong while interacting with port " << port_);
+    return CallbackReturn::FAILURE;
+  }
+
+  RCLCPP_INFO(rclcpp::get_logger("ScuttleInterface"),
+              "Hardware started, ready to take commands");
+  return CallbackReturn::SUCCESS;
+}
+
+CallbackReturn ScuttleInterface::on_deactivate(const State &)
+{
+  RCLCPP_INFO(rclcpp::get_logger("ScuttleInterface"), "Stopping robot hardware ...");
+
+  if (arduino_.IsOpen())
+  {
+    try
+    {
+      arduino_.Close();
+    }
+    catch (...)
+    {
+      RCLCPP_FATAL_STREAM(rclcpp::get_logger("ScuttleInterface"),
+                          "Something went wrong while closing connection with port " << port_);
+    }
+  }
+
+  RCLCPP_INFO(rclcpp::get_logger("ScuttleInterface"), "Hardware stopped");
+  return CallbackReturn::SUCCESS;
+}
+
+hardware_interface::return_type ScuttleInterface::read(const rclcpp::Time &, const rclcpp::Duration &)
+{
+  string message;
+  
+  try {
+    // Drop the timeout to 20ms! If it waits longer than this, 
+    // it will break the 50ms (20Hz) controller_manager deadline.
+    arduino_.ReadLine(message, '\n', 20);
+  } catch (const LibSerial::ReadTimeout&) {
+    // The Pi and Arduino clocks drifted out of phase this cycle.
+    // Do NOT zero out the velocity here! It will cause jerky odometry 
+    // and make Nav2 think the robot is constantly crashing.
+    // Just return and let the virtual robot coast on the previous velocity.
+    return hardware_interface::return_type::OK;
+  }
+
+  auto dt = (Clock().now() - last_run_).seconds();
+  stringstream ss(message);
+  string res;
+  int multiplier = 1;
+  
+  while(getline(ss, res, ','))
+  {
+    if (res.empty()) continue;
+    if (res.length() < 2) continue;
+
+    multiplier = (res.at(1) == 'p') ? 1 : -1;
+
+    if(res.at(0) == 'r')
+    {
+      velocity_states_.at(right_wheel_index_) = multiplier * std::stod(res.substr(2));
+      position_states_.at(right_wheel_index_) += velocity_states_.at(right_wheel_index_) * dt;
+    }
+    else if(res.at(0) == 'l')
+    {
+      velocity_states_.at(left_wheel_index_) = multiplier * std::stod(res.substr(2));
+      position_states_.at(left_wheel_index_) += velocity_states_.at(left_wheel_index_) * dt;
+    }
+  }
+  
+  // Notice that we only update the last_run_ clock if we successfully read data.
+  // This ensures the math integrates perfectly even if we skip a cycle!
+  last_run_ = Clock().now();
+  
+  return hardware_interface::return_type::OK;
+}
+
+return_type ScuttleInterface::write(const Time &, const Duration &)
+{
+  stringstream message_stream;
+  
+  // Use specific indices
+  double right_vel = velocity_commands_.at(right_wheel_index_);
+  double left_vel = velocity_commands_.at(left_wheel_index_);
+
+  char right_wheel_sign = right_vel >= 0 ? 'p' : 'n';
+  char left_wheel_sign = left_vel >= 0 ? 'p' : 'n';
+  
+  string compensate_zeros_right = (abs(right_vel) < 10.0) ? "0" : "";
+  string compensate_zeros_left = (abs(left_vel) < 10.0) ? "0" : "";
+  
+  message_stream << fixed << setprecision(2) << 
+    "r" << right_wheel_sign << compensate_zeros_right << abs(right_vel) << 
+    ",l" <<  left_wheel_sign << compensate_zeros_left << abs(left_vel) << ",\n";
+
+  try
+  {
+    arduino_.Write(message_stream.str());
+  }
+  catch (...)
+  {
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("ScuttleInterface"),
+                        "Something went wrong while sending the message "
+                            << message_stream.str() << " to the port " << port_);
+    return return_type::ERROR;
+  }
+
+  return return_type::OK;
+}
+
+PLUGINLIB_EXPORT_CLASS(scuttle_firmware::ScuttleInterface, SystemInterface)

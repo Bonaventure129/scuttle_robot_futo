@@ -18,6 +18,10 @@ twist_mux:
         topic   : cmd_vel_tracker
         timeout : 0.5
         priority: 50
+      evasion:                
+        topic   : cmd_vel_evasion
+        timeout : 0.5
+        priority: 20
       navigation: 
         topic   : cmd_vel
         timeout : 0.5

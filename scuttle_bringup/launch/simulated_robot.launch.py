@@ -131,5 +131,5 @@ def generate_launch_description():
         navigation,
         rviz_localization,
         rviz_slam,
-        camera_node,
+        #camera_node,
     ])

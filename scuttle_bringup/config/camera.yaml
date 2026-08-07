@@ -1,21 +1,18 @@
 usb_cam:
   ros__parameters:
     video_device: "/dev/video0"
-    framerate: 30.0
-    image_width: 640       # Lower resolution for stability
+    framerate: 10.0        # The absolute sweet spot for mobile robotics
+    image_width: 640
     image_height: 480
-    pixel_format: "yuyv"   # <--- CHANGED: Uncompressed format (No decoding errors)
+    pixel_format: "yuyv2rgb"   # Zero-CPU decoding
     av_device_format: "YUV422P"
+    camera_name: "ov5693_camera"
     frame_id: "camera_link_optical"
-    camera_name: "m720_camera"
-    brightness: -1
-    contrast: -1
-    saturation: -1
-    sharpness: -1
-    gain: -1
-    auto_white_balance: true
+    
+    # --- Performance Locks ---
+    auto_white_balance: false # Locked to prevent CPU spikes
     white_balance: 4000
-    autoexposure: true
+    autoexposure: false       # Locked for consistent frame timing
     exposure: 100
-    autofocus: false
+    autofocus: false          # Locked to protect odometry
     focus: -1

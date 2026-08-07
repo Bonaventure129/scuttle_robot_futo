@@ -168,8 +168,8 @@ def generate_launch_description():
         controller,
         joystick,
         imu_driver_node,
-        #safety_stop,
+        safety_stop,
         delayed_slam, 
         delayed_navigation,
-        #camera_node        
+        camera_node        
     ])

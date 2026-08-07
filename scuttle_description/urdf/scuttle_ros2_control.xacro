@@ -24,7 +24,7 @@
         <xacro:unless value="$(arg is_sim)">
             <hardware>
                 <plugin>scuttle_firmware/ScuttleInterface</plugin>
-                <param name="port">/dev/arduino</param>
+                <param name="port">/dev/ttyS0</param>
             </hardware>
         </xacro:unless>
         

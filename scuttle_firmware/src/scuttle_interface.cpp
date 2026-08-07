@@ -127,7 +127,7 @@ CallbackReturn ScuttleInterface::on_activate(const State &)
   try
   {
     arduino_.Open(port_);
-    arduino_.SetBaudRate(LibSerial::BaudRate::BAUD_115200);
+    arduino_.SetBaudRate(LibSerial::BaudRate::BAUD_115200); // Changed to match SoftwareSerial
   }
   catch (...)
   {
@@ -162,22 +162,21 @@ CallbackReturn ScuttleInterface::on_deactivate(const State &)
   return CallbackReturn::SUCCESS;
 }
 
-return_type ScuttleInterface::read(const Time &, const Duration &)
+hardware_interface::return_type ScuttleInterface::read(const rclcpp::Time &, const rclcpp::Duration &)
 {
   string message;
   
-  // --- RACE CONDITION & GHOST DRIVING FIX ---
-  // We forcefully wait up to 100ms for data.
   try {
-    arduino_.ReadLine(message, '\n', 100);
+    // Drop the timeout to 20ms! If it waits longer than this, 
+    // it will break the 50ms (20Hz) controller_manager deadline.
+    arduino_.ReadLine(message, '\n', 20);
   } catch (const LibSerial::ReadTimeout&) {
-    // If the Arduino drops the connection or freezes due to EMI noise, 
-    // instantly zero out the velocity so the virtual robot stops!
-    velocity_states_.at(right_wheel_index_) = 0.0;
-    velocity_states_.at(left_wheel_index_) = 0.0;
-    return return_type::OK;
+    // The Pi and Arduino clocks drifted out of phase this cycle.
+    // Do NOT zero out the velocity here! It will cause jerky odometry 
+    // and make Nav2 think the robot is constantly crashing.
+    // Just return and let the virtual robot coast on the previous velocity.
+    return hardware_interface::return_type::OK;
   }
-  // ------------------------------------------
 
   auto dt = (Clock().now() - last_run_).seconds();
   stringstream ss(message);
@@ -202,9 +201,12 @@ return_type ScuttleInterface::read(const Time &, const Duration &)
       position_states_.at(left_wheel_index_) += velocity_states_.at(left_wheel_index_) * dt;
     }
   }
+  
+  // Notice that we only update the last_run_ clock if we successfully read data.
+  // This ensures the math integrates perfectly even if we skip a cycle!
   last_run_ = Clock().now();
   
-  return return_type::OK;
+  return hardware_interface::return_type::OK;
 }
 
 return_type ScuttleInterface::write(const Time &, const Duration &)
